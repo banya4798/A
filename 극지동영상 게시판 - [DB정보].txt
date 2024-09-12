@@ -1,0 +1,54 @@
+#DB 정보
+
+/////////////////////////////////////////////////////////////////////////////////////
+
+@ 파일 테이블 ( 외래키 참조 )
+CREATE TABLE file (
+    f_seq     SERIAL PRIMARY KEY,  -- 파일의 고유 ID
+    b_seq     Integer NOT NULL,    -- 게시판 글 번호 (외래키)
+    f_name    VARCHAR(500) NOT NULL, -- 서버에 저장될 파일 이름
+    f_origin_name varchar(500) not null, -- 게시판에 보일 파일 원래 이름
+    f_path    VARCHAR(500) NOT NULL, -- 파일이 저장된 경로
+    f_size    numeric(22) NOT NULL,  -- 파일 크기
+    writer    VARCHAR(50),           -- 등록자
+    regdate   TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- 파일 등록 일자
+    CONSTRAINT fk_pb_b_seq 
+        FOREIGN KEY(b_seq)
+        REFERENCES "playboard"(b_seq) 
+        ON DELETE CASCADE 
+        ON UPDATE CASCADE
+);
+
+/////////////////////////////////////////////////////////////////////////////////////
+
+@ 게시판 테이블
+create table playboard (
+	b_seq SERIAL primary key,
+	title varchar(2000) not null,
+	content text,
+	writer varchar(50) not null,
+	regdate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	ox varchar(1),
+	link_url varchar(500)
+);
+
+/////////////////////////////////////////////////////////////////////////////////////
+
+@트리거 - link_url의 공백을 제거하고, 그것이 null이면 x, null이 아니면 o을 삽입. 검색조건(영상있음, 영상없음)으로 활용하기 위함.
+CREATE OR REPLACE FUNCTION set_ox_value()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TRIM(COALESCE(NEW.link_url, '')) <> '' THEN
+        NEW.ox := 'o';
+    ELSE
+        NEW.ox := 'x';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER OX_value_trigger
+BEFORE INSERT OR UPDATE ON playboard
+FOR EACH ROW
+EXECUTE FUNCTION set_ox_value();
+
